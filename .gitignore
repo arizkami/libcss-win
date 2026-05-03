@@ -1,0 +1,5 @@
+build-*
+Makefile.config.override
+*~
+docs/html
+_build
