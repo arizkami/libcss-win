@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(libparserutils C)
 
-include_directories(include src)
-
 # Generate aliases.inc
 find_package(Perl REQUIRED)
 set(ALIASES_INC ${CMAKE_CURRENT_SOURCE_DIR}/src/charset/aliases.inc)
@@ -18,11 +16,18 @@ file(GLOB_RECURSE SOURCES src/*.c)
 
 add_library(parserutils ${SOURCES} ${ALIASES_INC})
 
+target_include_directories(parserutils PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 target_compile_definitions(parserutils PRIVATE WITHOUT_ICONV_FILTER)
 
 if(MSVC)
-    target_compile_definitions(parserutils PRIVATE _CRT_SECURE_NO_WARNINGS)
-    target_compile_definitions(parserutils PUBLIC strncasecmp=_strnicmp strcasecmp=_stricmp)
+    # Keep MSVC shims PRIVATE so C++ targets that link css are not polluted.
+    target_compile_definitions(parserutils PRIVATE
+        _CRT_SECURE_NO_WARNINGS
+        strncasecmp=_strnicmp
+        strcasecmp=_stricmp)
 endif()
 
 install(TARGETS parserutils DESTINATION lib)

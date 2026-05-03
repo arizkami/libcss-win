@@ -57,27 +57,28 @@ if(NOT WAPCAPLET_FOUND OR NOT PARSERUTILS_FOUND)
     message(WARNING "LibWapcaplet or LibParserUtils not found. Please set WAPCAPLET_INCLUDE_DIR, WAPCAPLET_LIBRARY, etc.")
 endif()
 
-# Common definitions
+# C standard (per-target compile defs avoid polluting parent C++ projects)
 if(MSVC)
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-    add_definitions(-Dinline=__inline)
-    add_definitions(-Dstrncasecmp=_strnicmp -Dstrcasecmp=_stricmp)
-    add_definitions(-Drestrict=__restrict)
     set(CMAKE_C_STANDARD 99)
     set(CMAKE_C_STANDARD_REQUIRED ON)
 else()
-    add_definitions(-D_BSD_SOURCE -D_DEFAULT_SOURCE)
     set(CMAKE_C_STANDARD 99)
 endif()
 
-include_directories(include src)
-include_directories(${WAPCAPLET_INCLUDE_DIRS})
-include_directories(${PARSERUTILS_INCLUDE_DIRS})
-
 # Host tool: gen_parser
 add_executable(gen_parser src/parse/properties/css_property_parser_gen.c)
+target_include_directories(gen_parser PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${WAPCAPLET_INCLUDE_DIRS}
+    ${PARSERUTILS_INCLUDE_DIRS})
 if(MSVC)
-    target_compile_definitions(gen_parser PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(gen_parser PRIVATE
+        _CRT_SECURE_NO_WARNINGS
+        inline=__inline
+        strncasecmp=_strnicmp
+        strcasecmp=_stricmp
+        restrict=__restrict)
 endif()
 
 # Code generation script
@@ -158,10 +159,24 @@ foreach(AUTOSRC ${AUTOGEN_SOURCES})
 endforeach()
 
 add_library(css ${LIB_SOURCES} ${AUTOGEN_SOURCES} ${SELECT_AUTOGEN_FILES})
-target_link_libraries(css ${WAPCAPLET_LIBRARIES} ${PARSERUTILS_LIBRARIES})
+# Only `include/` is public: exposing `src/` to C++ consumers breaks builds and
+# is unnecessary for `#include <libcss/...>`.
+target_include_directories(css PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(css PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(css PUBLIC ${WAPCAPLET_LIBRARIES} ${PARSERUTILS_LIBRARIES})
 
 if(MSVC)
+    target_compile_definitions(css PRIVATE
+        _CRT_SECURE_NO_WARNINGS
+        inline=__inline
+        strncasecmp=_strnicmp
+        strcasecmp=_stricmp
+        restrict=__restrict)
     target_compile_options(css PRIVATE /wd4244 /wd4267 /wd4018)
+else()
+    target_compile_definitions(css PRIVATE _BSD_SOURCE _DEFAULT_SOURCE)
 endif()
 
 # Installation
